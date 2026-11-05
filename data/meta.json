@@ -1,1 +1,1 @@
-{"stations":{"count":9317,"cells":598,"gridDeg":0.25,"source":"国土数値情報 駅別乗降客数 S12-25（2024年度）国土交通省 CC BY 4.0","builtAt":"2026-11-05T09:43:04.003Z"}}
+{"stations":{"count":9317,"cells":598,"gridDeg":0.25,"source":"国土数値情報 駅別乗降客数 S12-25（2024年度）国土交通省 CC BY 4.0","builtAt":"2026-11-05T09:43:04.003Z"},"pop":{"primaryMeshes":150,"complete":true,"source":"e-Stat 令和2年国勢調査 250mメッシュ T001142","builtAt":"2026-11-05T09:47:59.179Z"}}
