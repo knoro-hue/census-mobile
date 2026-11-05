@@ -1,0 +1,69 @@
+name: データ作成（交通量・駅乗降・人口）
+
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: "作成するデータ（stations=駅, pop=人口, traffic=交通量。カンマ区切り）"
+        default: "stations,pop,traffic"
+      force:
+        description: "作成済みのデータも取り直す"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - ".github/workflows/build-data.yml"
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: build-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    env:
+      FORCE: ${{ github.event.inputs.force || 'false' }}
+      STEPS: ${{ github.event.inputs.steps || 'stations,pop,traffic' }}
+      TIME_BUDGET_MIN: "300"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 駅別乗降客数
+        if: contains(env.STEPS, 'stations')
+        run: node scripts/build.mjs stations
+
+      - name: 保存（駅）
+        if: always()
+        run: bash scripts/commit.sh "駅別乗降客数データを更新"
+
+      - name: 周辺人口
+        if: contains(env.STEPS, 'pop')
+        run: node scripts/build.mjs pop
+
+      - name: 保存（人口）
+        if: always()
+        run: bash scripts/commit.sh "周辺人口データを更新"
+
+      - name: 交通量
+        if: contains(env.STEPS, 'traffic')
+        run: node scripts/build.mjs traffic
+
+      - name: 保存（交通量）
+        if: always()
+        run: bash scripts/commit.sh "交通量データを更新"
+
+      - name: GitHub Pagesを再公開
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" || echo "Pagesの再公開要求は失敗（自動で反映される場合は問題なし）"

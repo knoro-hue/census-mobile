@@ -2,118 +2,336 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>交通量データ取得テスト</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>店舗開発 交通量・駅・人口</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--ink:#1f2937;--sub:#6b7280;--ok:#0f766e;--ng:#b91c1c;--warn:#a16207;--line:#e5e7eb;--accent:#1d4ed8}
+:root{--bg:#f3f5f8;--card:#fff;--ink:#17202b;--sub:#667085;--line:#e4e7ec;--navy:#1e3a5f;--accent:#2563eb;--road:#dc2626;--warn-bg:#fff7e6;--warn:#8a5a00}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;line-height:1.55}
-main{max-width:640px;margin:0 auto;padding:16px}
-h1{font-size:19px;margin:4px 0 4px}
-p.lead{color:var(--sub);margin:0 0 14px;font-size:13px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
-.row{display:flex;gap:8px;flex-wrap:wrap}
-button{flex:1 1 140px;font:inherit;font-weight:700;padding:12px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff}
-button.sub{background:#fff;color:var(--accent)}
-button:disabled{opacity:.5}
-#point{font-size:13px;color:var(--sub);margin-top:8px}
-.verdict{font-size:17px;font-weight:800;padding:12px;border-radius:10px;margin-bottom:12px;display:none}
-.verdict.ok{display:block;background:#ecfdf5;color:var(--ok);border:1px solid #a7f3d0}
-.verdict.ng{display:block;background:#fef2f2;color:var(--ng);border:1px solid #fecaca}
-.verdict.warn{display:block;background:#fffbeb;color:var(--warn);border:1px solid #fde68a}
-.verdict small{display:block;font-weight:500;font-size:13px;margin-top:4px;color:var(--ink)}
-ul{list-style:none;margin:0;padding:0}
-li{padding:8px 0;border-top:1px solid var(--line);font-size:13px;word-break:break-all}
-li:first-child{border-top:0}
-.tag{display:inline-block;min-width:64px;text-align:center;font-weight:800;font-size:12px;border-radius:6px;padding:1px 6px;margin-right:6px}
-.tag.ok{background:#ccfbf1;color:var(--ok)}.tag.ng{background:#fee2e2;color:var(--ng)}.tag.warn{background:#fef3c7;color:var(--warn)}.tag.wait{background:#e5e7eb;color:var(--sub)}
-.url{color:var(--sub);font-size:11px}
-footer{color:var(--sub);font-size:11px;margin-top:8px}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+header{position:sticky;top:0;z-index:1000;background:var(--navy);color:#fff;padding:10px 12px calc(10px);padding-top:max(10px,env(safe-area-inset-top))}
+header h1{margin:0 0 8px;font-size:15px;font-weight:800;letter-spacing:.02em}
+.search{display:flex;gap:6px}
+.search input{flex:1;min-width:0;font:inherit;font-size:16px;padding:9px 10px;border-radius:9px;border:0}
+.search button{font:inherit;font-weight:700;padding:0 12px;border-radius:9px;border:0;background:#fff;color:var(--navy)}
+#map{height:46vh;min-height:260px;background:#e5e7eb}
+.bar{display:flex;gap:8px;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--line)}
+.bar button{flex:1;font:inherit;font-weight:800;padding:11px 8px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff}
+.bar button.sub{background:#fff;color:var(--accent)}
+.bar button:disabled{opacity:.5}
+main{padding:10px 12px 40px;max-width:720px;margin:0 auto}
+.point{font-size:12px;color:var(--sub);margin:2px 2px 10px}
+.point a{color:var(--accent);margin-left:8px;white-space:nowrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 13px;margin-bottom:10px}
+.card h2{margin:0 0 8px;font-size:14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card h2 small{font-weight:500;color:var(--sub);font-size:11px}
+.big{font-size:28px;font-weight:900;letter-spacing:-.01em;line-height:1.15}
+.big small{font-size:13px;font-weight:700;color:var(--sub);margin-left:3px}
+.route{font-weight:800;font-size:15px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px;margin-top:8px}
+.kv dt{color:var(--sub)}
+.kv dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.note{font-size:12px;color:var(--sub);margin-top:8px}
+.warn{background:var(--warn-bg);color:var(--warn);font-size:12px;border-radius:8px;padding:7px 9px;margin-top:8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{font:inherit;font-size:12px;padding:5px 9px;border-radius:999px;border:1px solid var(--line);background:#f8fafc;color:var(--ink)}
+.chip.on{border-color:var(--road);color:var(--road);background:#fef2f2;font-weight:700}
+.empty{color:var(--sub);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 4px;border-top:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+thead th{border-top:0;color:var(--sub);font-weight:600;font-size:11px}
+.st{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.st:first-of-type{border-top:0}
+.st b{display:block;font-size:14px}
+.st span{font-size:11px;color:var(--sub)}
+.st .pax{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.st .pax b{font-size:15px;display:inline}
+.banner{background:var(--warn-bg);color:var(--warn);font-size:12px;padding:8px 12px;border-bottom:1px solid #f3dfb5;display:none}
+footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid #cbd5e1;border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+.leaflet-container{font:inherit}
 </style>
 </head>
 <body>
+<header>
+  <h1>店舗開発　交通量・駅乗降・周辺人口</h1>
+  <form class="search" id="searchForm">
+    <input id="q" type="search" placeholder="住所・地名・緯度,経度・GoogleマップURL" enterkeyhint="search" autocomplete="off">
+    <button>検索</button>
+  </form>
+</header>
+<div class="banner" id="banner"></div>
+<div id="map"></div>
+<div class="bar">
+  <button id="gpsBtn">現在地で調べる</button>
+  <button id="centerBtn" class="sub">地図の中心で調べる</button>
+</div>
 <main>
-<h1>交通量データ取得テスト</h1>
-<p class="lead">このページから国土交通省の交通量データ（R3道路交通センサス）を直接読み込めるかを確認します。結果の画面をスクリーンショットで送ってください。</p>
-
-<div class="card">
-  <div class="row">
-    <button id="gpsBtn">現在地でテスト</button>
-    <button id="fixedBtn" class="sub">千葉駅周辺でテスト</button>
-  </div>
-  <div id="point">地点：未選択</div>
-</div>
-
-<div id="verdict" class="verdict"></div>
-
-<div class="card">
-  <ul id="log"><li>ボタンを押すとテストを開始します。</li></ul>
-</div>
-
-<footer id="env"></footer>
+  <div class="point" id="point">地図をタップするか、ボタンで地点を選んでください。</div>
+  <section class="card" id="trafficCard"><h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty">地点を選ぶと、一番近い調査区間の交通量を表示します。</div></section>
+  <section class="card" id="stationCard"><h2>駅の乗降客数 <small>半径1km以内</small></h2><div class="empty">—</div></section>
+  <section class="card" id="popCard"><h2>周辺人口 <small>令和2年国勢調査</small></h2><div class="empty">—</div></section>
+  <footer id="foot">
+    交通量：令和3年度 全国道路・街路交通情勢調査 一般交通量調査（国土交通省）／駅乗降：国土数値情報 S12-25 駅別乗降客数（2024年度・国土交通省）／周辺人口：e-Stat 令和2年国勢調査 250mメッシュ（円と重なる面積で按分した概算）。地図：© OpenStreetMap contributors。
+    <div id="metaInfo"></div>
+  </footer>
 </main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-const GEO_BASE='https://www.mlit.go.jp/road/ir/ir-data/census_visualizationR3';
-const CSV_BASE='https://www.mlit.go.jp/road/census/r3/data/csv';
-const ROAD_TYPES=['drm10','drm20','drm31','drm32','drm40_50','drm60_70'];
-const $=id=>document.getElementById(id);
-$('env').textContent='このページの発信元：'+location.origin+' ／ '+navigator.userAgent;
+"use strict";
+const DATA = "data";
+const TILE_ZOOM = 12, STATION_GRID_DEG = 0.25, STATION_MAX_M = 1000, POP_RADII = [1000, 3000, 5000];
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 0) => v == null || !Number.isFinite(+v) ? "—" : (+v).toLocaleString("ja-JP", { maximumFractionDigits: d, minimumFractionDigits: d });
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-function tileOf(lat,lng,z){const n=2**z,r=lat*Math.PI/180;return{x:Math.floor((lng+180)/360*n),y:Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n),z};}
-function addLog(label,url){const li=document.createElement('li');li.innerHTML=`<span class="tag wait">確認中</span>${label}<div class="url"></div>`;li.querySelector('.url').textContent=url;$('log').appendChild(li);return li;}
-function setTag(li,cls,text,extra){const t=li.querySelector('.tag');t.className='tag '+cls;t.textContent=text;if(extra){const d=document.createElement('div');d.textContent=extra;li.insertBefore(d,li.querySelector('.url'));}}
-
-// 通常の取得（CORS）と、中身を読まない取得（no-cors）を両方試し、
-// 「サーバーには届くが読み込みを拒否された」のか「そもそも届かない」のかを区別する。
-async function probe(url){
-  try{
-    const r=await fetch(url,{cache:'no-store'});
-    return {cors:true,status:r.status,ok:r.ok,resp:r};
-  }catch(e){
-    try{await fetch(url,{mode:'no-cors',cache:'no-store'});return {cors:false,reachable:true,error:String(e)};}
-    catch(e2){return {cors:false,reachable:false,error:String(e2)};}
-  }
+// ---------- データ取得（同じファイルは1回だけ読む） ----------
+const jsonCache = new Map();
+function getJson(url) {
+  if (!jsonCache.has(url)) jsonCache.set(url, fetch(url).then(r => r.status === 404 ? null : r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))).catch(e => { jsonCache.delete(url); throw e; }));
+  return jsonCache.get(url);
 }
 
-async function run(lat,lng,label){
-  $('gpsBtn').disabled=$('fixedBtn').disabled=true;
-  $('point').textContent=`地点：${label}（${lat.toFixed(5)}, ${lng.toFixed(5)}）`;
-  $('log').innerHTML='';const v=$('verdict');v.className='verdict';v.innerHTML='';
-  const t=tileOf(lat,lng,12);let corsOk=0,corsNg=0,unreachable=0,census=null;
-  for(const rt of ROAD_TYPES){
-    const url=`${GEO_BASE}/${rt}/${t.z}/${t.x}/${t.y}.geojson`;const li=addLog('道路データ '+rt,url);
-    const r=await probe(url);
-    if(r.cors){
-      corsOk++;
-      if(r.ok){try{const j=await r.resp.json();const n=j.features?.length||0;setTag(li,'ok','読込OK',`道路 ${n}件`);
-        if(!census)for(const f of j.features||[]){const c=String(f?.properties?.census??'');if(/^\d{11}$/.test(c)){census=c;break;}}}
-        catch(_){setTag(li,'ok','読込OK','（JSONではない応答）');}}
-      else setTag(li,r.status===404?'warn':'ng','HTTP '+r.status,r.status===404?'この地点にこの種別の道路データなし（正常）':'');
-    }else if(r.reachable){corsNg++;setTag(li,'ng','拒否','サーバーには届くが、外部ページからの読み込みが拒否されました');}
-    else{unreachable++;setTag(li,'ng','接続不可',r.error);}
-  }
-  const pref=census?census.slice(0,2):'12';
-  const csvUrl=`${CSV_BASE}/kasyo${pref}.csv`;const li=addLog('交通量CSV（都道府県コード '+pref+'）',csvUrl);
-  const r=await probe(csvUrl);
-  if(r.cors){corsOk++;if(r.ok){const b=await r.resp.arrayBuffer();setTag(li,'ok','読込OK',`${(b.byteLength/1024/1024).toFixed(1)} MB`);}else setTag(li,'ng','HTTP '+r.status);}
-  else if(r.reachable){corsNg++;setTag(li,'ng','拒否','サーバーには届くが、外部ページからの読み込みが拒否されました');}
-  else{unreachable++;setTag(li,'ng','接続不可',r.error);}
+// ---------- 地図 ----------
+const map = L.map("map", { zoomControl: true, attributionControl: true }).setView([35.681, 139.767], 15);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap contributors" }).addTo(map);
+const roadLayer = L.layerGroup().addTo(map), overlay = L.layerGroup().addTo(map);
+let marker = null, current = null, runId = 0;
 
-  if(corsNg===0&&unreachable===0&&corsOk>0){v.className='verdict ok';v.innerHTML='結果：直接読み込めます<small>国交省のデータをそのまま使うスマホページが作れます（全国対応）。</small>';}
-  else if(corsNg>0&&corsOk===0){v.className='verdict ng';v.innerHTML='結果：直接は読み込めません<small>データを事前に変換してGitHubに置く方式で作ります。</small>';}
-  else if(unreachable>0&&corsOk===0&&corsNg===0){v.className='verdict warn';v.innerHTML='結果：国交省のサーバーに接続できません<small>電波状況や社内ネットワークの制限の可能性があります。別の回線で再度お試しください。</small>';}
-  else{v.className='verdict warn';v.innerHTML='結果：一部だけ読み込めました<small>このままスクリーンショットを送ってください。</small>';}
-  $('gpsBtn').disabled=$('fixedBtn').disabled=false;
+// ---------- 距離計算（拡張機能と同じ） ----------
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371008.8, p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180, dp = p2 - p1, dl = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function segDist(lat, lng, lat1, lng1, lat2, lng2) {
+  const m = ((lat + lat1 + lat2) / 3) * Math.PI / 180, kx = 111320 * Math.cos(m), ky = 110574;
+  const px = (lng - lng1) * kx, py = (lat - lat1) * ky, vx = (lng2 - lng1) * kx, vy = (lat2 - lat1) * ky;
+  const len = vx * vx + vy * vy, t = len ? Math.max(0, Math.min(1, (px * vx + py * vy) / len)) : 0;
+  return Math.hypot(px - t * vx, py - t * vy);
+}
+function roadDist(road, lat, lng) {
+  let best = Infinity;
+  for (const g of road.g) for (let i = 2; i + 1 < g.length; i += 2) {
+    const d = segDist(lat, lng, g[i - 1] / 1e5, g[i - 2] / 1e5, g[i + 1] / 1e5, g[i] / 1e5);
+    if (d < best) best = d;
+  }
+  return best;
+}
+const toLatLngs = g => { const o = []; for (let i = 0; i + 1 < g.length; i += 2) o.push([g[i + 1] / 1e5, g[i] / 1e5]); return o; };
+
+// ---------- 交通量 ----------
+function trafficTiles(lat, lng) {
+  const n = 2 ** TILE_ZOOM, fx = (lng + 180) / 360 * n, r = lat * Math.PI / 180, fy = (1 - Math.asinh(Math.tan(r)) / Math.PI) / 2 * n;
+  const x0 = Math.floor(fx), y0 = Math.floor(fy), xs = [x0], ys = [y0];
+  if (fx - x0 < .1) xs.push(x0 - 1); else if (fx - x0 > .9) xs.push(x0 + 1);
+  if (fy - y0 < .1) ys.push(y0 - 1); else if (fy - y0 > .9) ys.push(y0 + 1);
+  return xs.flatMap(x => ys.map(y => `${x}_${y}`));
+}
+async function loadTraffic(p, id) {
+  const card = $("trafficCard");
+  card.innerHTML = `<h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty"><span class="spin"></span>調査区間を探しています…</div>`;
+  const tiles = await Promise.all(trafficTiles(p.lat, p.lng).map(k => getJson(`${DATA}/roads/${k}.json`).catch(() => null)));
+  if (id !== runId) return;
+  const byId = new Map();
+  for (const t of tiles) for (const r of t || []) {
+    const prev = byId.get(r.c);
+    if (prev) prev.g.push(...r.g); else byId.set(r.c, { ...r, g: [...r.g] });
+  }
+  const roads = [...byId.values()].map(r => ({ ...r, d: roadDist(r, p.lat, p.lng) })).filter(r => Number.isFinite(r.d)).sort((a, b) => a.d - b.d);
+  current.roads = roads;
+  if (!roads.length) {
+    const missing = tiles.every(t => t === null);
+    card.innerHTML = `<h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty">${missing && !META.traffic?.complete ? "この地域の交通量データはまだ作成中です。" : "この地点の周辺には交通量調査の対象道路がありません。"}</div>`;
+    roadLayer.clearLayers(); return;
+  }
+  selectRoad(roads[0].c);
+}
+function selectRoad(censusId) {
+  const p = current, roads = p.roads || [], sel = roads.find(r => r.c === censusId);
+  if (!sel) return;
+  roadLayer.clearLayers();
+  const near = roads.slice(0, 5).map(r => r.c);
+  for (const r of roads) {
+    const isSel = r.c === sel.c, isNear = near.includes(r.c);
+    for (const g of r.g) {
+      const line = L.polyline(toLatLngs(g), { color: isSel ? "#dc2626" : isNear ? "#2563eb" : "#64748b", weight: isSel ? 7 : isNear ? 4 : 2.5, opacity: isSel ? .9 : isNear ? .75 : .45 });
+      line.on("click", ev => { L.DomEvent.stopPropagation(ev); selectRoad(r.c); });
+      line.addTo(roadLayer);
+    }
+  }
+  const a = sel.a, d = Math.round(sel.d);
+  let warn = "";
+  if (d > 250) warn = "選んだ地点から250m以上離れた調査区間です。前面道路とは限らないため、地図で位置を確認してください。";
+  else if (d > 80) warn = "選んだ地点からやや離れた調査区間です。前面道路かどうか地図で確認してください。";
+  const chips = roads.slice(0, 5).map((r, i) => `<button class="chip${r.c === sel.c ? " on" : ""}" data-c="${r.c}">${i + 1}. ${esc(r.a?.route || r.c)} ${fmt(r.d)}m</button>`).join("");
+  let body;
+  if (!a) body = `<div class="empty">区間形状はありますが、箇所別基本表に値がありません（区間番号 ${sel.c}）。</div>`;
+  else body = `
+    <div class="route">${esc(a.route || "路線名なし")}${a.routeNo != null ? `（${fmt(a.routeNo)}号）` : ""}</div>
+    <div class="note" style="margin-top:2px">${esc(a.kind || "")}　地点から ${fmt(d)}m</div>
+    <div style="display:flex;gap:18px;margin-top:8px;flex-wrap:wrap">
+      <div><div class="note" style="margin:0">昼間12時間</div><div class="big">${fmt(a.t12)}<small>台</small></div></div>
+      <div><div class="note" style="margin:0">24時間</div><div class="big">${fmt(a.t24)}<small>台</small></div></div>
+    </div>
+    <dl class="kv">
+      <dt>上り／下り（12時間）</dt><dd>${fmt(a.up12)}／${fmt(a.dn12)}台</dd>
+      <dt>小型車／大型車（12時間）</dt><dd>${fmt(a.s12)}／${fmt(a.l12)}台</dd>
+      <dt>大型車混入率</dt><dd>${fmt(a.lr, 1)}%</dd>
+      <dt>混雑度</dt><dd>${fmt(a.cong, 2)}</dd>
+      <dt>車線数／車道幅員</dt><dd>${fmt(a.lanes)}車線／${fmt(a.width, 1)}m</dd>
+      <dt>混雑時旅行速度 上り／下り</dt><dd>${fmt(a.spUp, 1)}／${fmt(a.spDn, 1)}km/h</dd>
+      <dt>観測</dt><dd>${esc([a.obs, a.hours].filter(Boolean).join("・") || "—")}</dd>
+    </dl>`;
+  $("trafficCard").innerHTML = `<h2>交通量 <small>区間番号 ${sel.c}</small></h2>${body}${warn ? `<div class="warn">${warn}</div>` : ""}
+    ${roads.length > 1 ? `<div class="note">近くの調査区間（タップで切替・地図の線もタップできます）</div><div class="chips">${chips}</div>` : ""}`;
+  $("trafficCard").querySelectorAll(".chip").forEach(b => b.onclick = () => selectRoad(b.dataset.c));
 }
 
-$('fixedBtn').onclick=()=>run(35.6130,140.1130,'千葉駅周辺');
-$('gpsBtn').onclick=()=>{
-  if(!navigator.geolocation){alert('この端末では位置情報が使えません');return;}
-  $('point').textContent='地点：現在地を取得中…';
-  navigator.geolocation.getCurrentPosition(p=>run(p.coords.latitude,p.coords.longitude,'現在地'),
-    e=>{$('point').textContent='地点：現在地を取得できませんでした（'+e.message+'）。「千葉駅周辺でテスト」をお試しください。';},
-    {enableHighAccuracy:true,timeout:15000});
+// ---------- 駅 ----------
+async function loadStations(p, id) {
+  const card = $("stationCard");
+  card.innerHTML = `<h2>駅の乗降客数 <small>半径1km以内</small></h2><div class="empty"><span class="spin"></span>読み込み中…</div>`;
+  const gy = Math.floor((p.lat + 90) / STATION_GRID_DEG), gx = Math.floor((p.lng + 180) / STATION_GRID_DEG), keys = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) keys.push(`${gy + dy}_${gx + dx}`);
+  const cells = await Promise.all(keys.map(k => getJson(`${DATA}/stations/${k}.json`).catch(() => null)));
+  if (id !== runId) return;
+  if (!META.stations) { card.innerHTML = `<h2>駅の乗降客数</h2><div class="empty">駅データはまだ作成中です。</div>`; return; }
+  const list = cells.flat().filter(Boolean).map(s => ({ name: s[0], lat: s[1], lng: s[2], pax: s[3], ops: s[4], lines: s[5], d: haversine(p.lat, p.lng, s[1], s[2]) }))
+    .filter(s => s.d <= STATION_MAX_M).sort((a, b) => a.d - b.d);
+  for (const s of list) L.circleMarker([s.lat, s.lng], { radius: 7, color: "#fff", weight: 2, fillColor: "#7c3aed", fillOpacity: .95 }).bindTooltip(s.name + "駅").addTo(overlay);
+  const total = list.reduce((v, s) => v + (s.pax || 0), 0);
+  card.innerHTML = `<h2>駅の乗降客数 <small>半径1km以内 ${list.length}駅</small></h2>` + (list.length ? `
+    ${list.length > 1 ? `<div class="note" style="margin:0 0 4px">合計 <b style="color:var(--ink)">${fmt(total)}</b> 人/日</div>` : ""}
+    ${list.slice(0, 8).map(s => `<div class="st"><div><b>${esc(s.name)}駅</b><span>${esc([...new Set(s.ops)].join("・"))}${s.lines?.length ? "／" + esc(s.lines.join("・")) : ""}</span></div>
+      <div class="pax"><b>${fmt(s.pax)}</b> 人/日<br><span>${fmt(s.d)}m</span></div></div>`).join("")}` :
+    `<div class="empty">半径1km以内に駅はありません。</div>`);
+}
+
+// ---------- 周辺人口（拡張機能と同じ按分計算） ----------
+function primaryCode(lat, lng) { const a = Math.floor(lat * 1.5), b = Math.floor(lng) - 100; return a < 0 || a > 99 || b < 0 || b > 99 ? null : `${String(a).padStart(2, "0")}${String(b).padStart(2, "0")}`; }
+function primaryCodesFor(p, r) {
+  const dLat = r / 110574 + 1 / 480, dLng = r / (111320 * Math.max(.15, Math.cos(p.lat * Math.PI / 180))) + 1 / 320, s = new Set();
+  for (const la of [p.lat - dLat, p.lat, p.lat + dLat]) for (const ln of [p.lng - dLng, p.lng, p.lng + dLng]) { const c = primaryCode(la, ln); if (c) s.add(c); }
+  return [...s];
+}
+function meshBounds(primary, s6) {
+  const p = +primary.slice(0, 2), q = +primary.slice(2, 4), q4 = +s6[4], q5 = +s6[5];
+  let south = p / 1.5 + +s6[0] / 12 + +s6[2] / 120, west = q + 100 + +s6[1] / 8 + +s6[3] / 80;
+  south += (q4 >= 3 ? 1 : 0) / 240; west += (q4 === 2 || q4 === 4 ? 1 : 0) / 160;
+  south += (q5 >= 3 ? 1 : 0) / 480; west += (q5 === 2 || q5 === 4 ? 1 : 0) / 320;
+  return { south, west, north: south + 1 / 480, east: west + 1 / 320 };
+}
+function circleFraction(b, p, r) {
+  const xy = (lat, lng) => { const m = ((lat + p.lat) / 2) * Math.PI / 180; return { x: (lng - p.lng) * 111320 * Math.cos(m), y: (lat - p.lat) * 110574 }; };
+  const sw = xy(b.south, b.west), ne = xy(b.north, b.east);
+  const minX = Math.min(sw.x, ne.x), maxX = Math.max(sw.x, ne.x), minY = Math.min(sw.y, ne.y), maxY = Math.max(sw.y, ne.y), r2 = r * r;
+  if ([minX * minX + minY * minY, minX * minX + maxY * maxY, maxX * maxX + minY * minY, maxX * maxX + maxY * maxY].every(v => v <= r2)) return 1;
+  const nx = Math.max(minX, Math.min(0, maxX)), ny = Math.max(minY, Math.min(0, maxY));
+  if (nx * nx + ny * ny >= r2) return 0;
+  let inside = 0; const n = 20, dx = (maxX - minX) / n, dy = (maxY - minY) / n;
+  for (let iy = 0; iy < n; iy++) { const y = minY + (iy + .5) * dy; for (let ix = 0; ix < n; ix++) { const x = minX + (ix + .5) * dx; if (x * x + y * y <= r2) inside++; } }
+  return inside / (n * n);
+}
+async function loadPopulation(p, id) {
+  const card = $("popCard");
+  card.innerHTML = `<h2>周辺人口 <small>令和2年国勢調査</small></h2><div class="empty"><span class="spin"></span>計算中…</div>`;
+  const codes = primaryCodesFor(p, Math.max(...POP_RADII));
+  const files = await Promise.all(codes.map(c => getJson(`${DATA}/pop/${c}.json`).then(rows => ({ c, rows })).catch(() => ({ c, rows: null }))));
+  if (id !== runId) return;
+  if (files.every(f => !f.rows)) { card.innerHTML = `<h2>周辺人口</h2><div class="empty">${META.pop ? "この地域の人口データはありません。" : "人口データはまだ作成中です。"}</div>`; return; }
+  const sums = POP_RADII.map(r => ({ r, pop: 0, hh: 0, a0: 0, a15: 0, a65: 0, ageBase: 0 }));
+  for (const f of files) for (const row of f.rows || []) {
+    const b = meshBounds(f.c, row[0]);
+    for (const s of sums) {
+      const w = circleFraction(b, p, s.r); if (w <= 0) continue;
+      s.pop += row[2] * w; s.hh += row[3] * w;
+      if (row[1] === 0 && row[4] != null && row[5] != null && row[6] != null) { s.a0 += row[4] * w; s.a15 += row[5] * w; s.a65 += row[6] * w; s.ageBase += row[2] * w; }
+    }
+  }
+  for (const r of POP_RADII) L.circle([p.lat, p.lng], { radius: r, color: "#0f766e", weight: 1.2, opacity: .55, fill: false, dashArray: "4 5", interactive: false }).addTo(overlay);
+  const rows = sums.map(s => {
+    const ageSum = s.a0 + s.a15 + s.a65, cov = s.pop > 0 ? s.ageBase / s.pop : 0, age = ageSum > 0 && cov >= .85;
+    const pct = v => age ? fmt(v / ageSum * 100, 1) + "%" : "—";
+    return { s, dens: s.pop / (Math.PI * s.r * s.r / 1e6), a0: pct(s.a0), a15: pct(s.a15), a65: pct(s.a65) };
+  });
+  card.innerHTML = `<h2>周辺人口 <small>令和2年国勢調査・250mメッシュ按分</small></h2>
+    <table><thead><tr><th>半径</th><th>人口</th><th>世帯</th><th>人口密度<br>(人/km²)</th></tr></thead><tbody>
+    ${rows.map(x => `<tr><td><b>${x.s.r / 1000}km</b></td><td><b>${fmt(Math.round(x.s.pop))}</b></td><td>${fmt(Math.round(x.s.hh))}</td><td>${fmt(Math.round(x.dens))}</td></tr>`).join("")}
+    </tbody></table>
+    <table style="margin-top:8px"><thead><tr><th>年齢構成</th><th>0〜14歳</th><th>15〜64歳</th><th>65歳以上</th></tr></thead><tbody>
+    ${rows.map(x => `<tr><td>${x.s.r / 1000}km</td><td>${x.a0}</td><td>${x.a15}</td><td>${x.a65}</td></tr>`).join("")}
+    </tbody></table>
+    ${files.some(f => !f.rows) ? `<div class="warn">円の一部が人口データのない範囲にかかっています（海上など、または作成中の地域）。</div>` : ""}
+    <div class="note">250mメッシュを円と重なる面積で按分した概算です。年齢構成は秘匿処理のメッシュを除いて計算しています。</div>`;
+}
+
+// ---------- 地点を選ぶ ----------
+function setPoint(lat, lng, label, zoom) {
+  const id = ++runId;
+  current = { lat, lng, roads: [] };
+  overlay.clearLayers(); roadLayer.clearLayers();
+  if (marker) marker.remove();
+  marker = L.marker([lat, lng]).addTo(map);
+  map.setView([lat, lng], zoom || Math.max(map.getZoom(), 16));
+  const z = 17, ll = `${lat.toFixed(6)}/${lng.toFixed(6)}`;
+  $("point").innerHTML = `${esc(label || "選択地点")}：${lat.toFixed(5)}, ${lng.toFixed(5)}
+    <a href="https://www.google.com/maps/@${lat.toFixed(6)},${lng.toFixed(6)},${z}z" target="_blank" rel="noopener">Googleマップ</a>
+    <a href="https://www.mlit.go.jp/road/ir/ir-data/census_visualizationR3/webmap.html#${z}/${ll}" target="_blank" rel="noopener">国交省MAP</a>`;
+  try { history.replaceState(null, "", `#${lat.toFixed(6)},${lng.toFixed(6)}`); } catch (_) {}
+  loadTraffic(current, id).catch(e => { if (id === runId) $("trafficCard").innerHTML = `<h2>交通量</h2><div class="warn">読み込みに失敗しました：${esc(e.message)}</div>`; });
+  loadStations(current, id).catch(e => { if (id === runId) $("stationCard").innerHTML = `<h2>駅の乗降客数</h2><div class="warn">読み込みに失敗しました：${esc(e.message)}</div>`; });
+  loadPopulation(current, id).catch(e => { if (id === runId) $("popCard").innerHTML = `<h2>周辺人口</h2><div class="warn">読み込みに失敗しました：${esc(e.message)}</div>`; });
+}
+map.on("click", e => setPoint(e.latlng.lat, e.latlng.lng, "タップした地点", map.getZoom()));
+$("centerBtn").onclick = () => { const c = map.getCenter(); setPoint(c.lat, c.lng, "地図の中心", map.getZoom()); };
+$("gpsBtn").onclick = () => {
+  if (!navigator.geolocation) return toastPoint("この端末では位置情報が使えません。");
+  $("gpsBtn").disabled = true; toastPoint('<span class="spin"></span>現在地を取得中…');
+  navigator.geolocation.getCurrentPosition(
+    pos => { $("gpsBtn").disabled = false; setPoint(pos.coords.latitude, pos.coords.longitude, `現在地（誤差 約${Math.round(pos.coords.accuracy)}m）`, 17); },
+    err => { $("gpsBtn").disabled = false; toastPoint("現在地を取得できませんでした（" + esc(err.message) + "）。設定で位置情報を許可するか、地図をタップしてください。"); },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
 };
+function toastPoint(html) { $("point").innerHTML = html; }
+
+// 検索：緯度経度 / GoogleマップURL / 住所（国土地理院 住所検索）
+function parseLatLng(s) {
+  const m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || s.match(/^\s*(-?\d{1,2}\.\d+)\s*[, ]\s*(-?\d{2,3}\.\d+)\s*$/);
+  return m ? { lat: +m[1], lng: +m[2] } : null;
+}
+$("searchForm").onsubmit = async ev => {
+  ev.preventDefault(); const q = $("q").value.trim(); if (!q) return; $("q").blur();
+  const ll = parseLatLng(q); if (ll) return setPoint(ll.lat, ll.lng, "指定した座標", 17);
+  toastPoint('<span class="spin"></span>検索中…');
+  try {
+    const r = await fetch("https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + encodeURIComponent(q));
+    const items = r.ok ? await r.json() : [];
+    if (!items.length) return toastPoint("見つかりませんでした。住所を詳しく入れるか、地図をタップしてください。");
+    const [lng, lat] = items[0].geometry.coordinates; setPoint(+lat, +lng, items[0].properties?.title || q, 17);
+  } catch (e) { toastPoint("検索に失敗しました（" + esc(e.message) + "）。地図をタップして地点を選んでください。"); }
+};
+
+// ---------- 起動 ----------
+let META = {};
+(async () => {
+  try { META = (await getJson(`${DATA}/meta.json?` + Date.now())) || {}; } catch (_) { META = {}; }
+  const pending = [!META.traffic && "交通量", !META.stations && "駅", !META.pop && "人口"].filter(Boolean);
+  const partial = [META.traffic && !META.traffic.complete && "交通量", META.pop && !META.pop.complete && "人口"].filter(Boolean);
+  if (pending.length || partial.length) {
+    $("banner").style.display = "block";
+    $("banner").textContent = pending.length ? `データ作成中：${pending.join("・")}のデータを準備しています。完成まで表示されない項目があります。` : `${partial.join("・")}のデータは一部地域のみ作成済みです（作成を続けています）。`;
+  }
+  const d = META.traffic?.builtAt || META.pop?.builtAt || META.stations?.builtAt;
+  if (d) $("metaInfo").textContent = "データ更新：" + new Date(d).toLocaleString("ja-JP");
+  const m = location.hash.match(/^#(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) setPoint(+m[1], +m[2], "共有された地点", 17);
+})();
 </script>
 </body>
 </html>
