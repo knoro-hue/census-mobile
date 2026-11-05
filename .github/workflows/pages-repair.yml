@@ -1,0 +1,36 @@
+name: Pages公開の詰まり解消
+
+# 公開（pages build and deployment）が途中で止まって次の公開ができないときに実行する。
+# 止まっている公開を取り消してから、改めて公開を依頼する。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/pages-repair.yml"
+
+permissions:
+  pages: write
+  deployments: read
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 止まっている公開を取り消す
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          for sha in $(gh api "repos/$REPO/deployments?environment=github-pages&per_page=10" --jq '.[].sha' | sort -u); do
+            echo "取り消し: $sha"
+            gh api -X POST "repos/$REPO/pages/deployments/$sha/cancel" 2>&1 || true
+          done
+      - name: 改めて公開を依頼
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          sleep 20
+          gh api -X POST "repos/$REPO/pages/builds" || echo "公開依頼に失敗"
