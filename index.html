@@ -54,6 +54,48 @@ footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid #cbd5e1;border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
 .leaflet-container{font:inherit}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.topbar h1{margin:0}
+.cmpBtn{font:inherit;font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.12);color:#fff;white-space:nowrap}
+.cmpBtn b{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:999px;background:#fff;color:var(--navy);font-size:11px}
+.saveRow{display:flex;gap:8px;margin:-2px 0 10px}
+.saveRow button{flex:1;font:inherit;font-size:13px;font-weight:800;padding:9px 8px;border-radius:10px;border:1px solid #0f766e;background:#fff;color:#0f766e}
+.saveRow button.primary{background:#0f766e;color:#fff}
+.saveRow button:disabled{opacity:.45}
+/* 比較リスト（全画面）：表の行列固定は使わず、指標ごとに地点を縦に並べる */
+.sheet{position:fixed;inset:0;z-index:1300;background:var(--bg);display:none;flex-direction:column}
+.sheet.open{display:flex}
+.sheetHead{background:var(--navy);color:#fff;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top));display:flex;align-items:center;gap:8px}
+.sheetHead h2{margin:0;font-size:15px;flex:1}
+.sheetHead button{font:inherit;font-size:13px;font-weight:800;padding:7px 11px;border-radius:9px;border:0;background:#fff;color:var(--navy)}
+.sheetHead button.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)}
+.sheetBody{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:10px 12px calc(30px + env(safe-area-inset-bottom))}
+.sheetInner{max-width:980px;margin:0 auto}
+.badge{display:inline-flex;align-items:center;justify-content:center;flex:none;width:20px;height:20px;border-radius:50%;background:var(--navy);color:#fff;font-size:11px;font-weight:800}
+.pl{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
+.pl:first-of-type{border-top:0}
+.pl .nm{flex:1;min-width:0}
+.pl .nm b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .nm span{display:block;font-size:11px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl button{font:inherit;font-size:12px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:#f8fafc;color:var(--ink);flex:none}
+.pl button.del{color:#b91c1c}
+.mgrid{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:760px){.mgrid{grid-template-columns:1fr 1fr}}
+.mcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 13px}
+.mcard h3{margin:0 0 6px;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+.mcard h3 small{color:var(--sub);font-weight:500;font-size:11px}
+.mrow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;column-gap:8px;padding:6px 0 7px;border-top:1px solid var(--line)}
+.mrow:first-of-type{border-top:0}
+.mrow .mn{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .mv{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.mrow .mv.na{color:var(--sub);font-weight:500;font-size:12px}
+.mrow .mb{grid-column:2 / 4;height:6px;border-radius:3px;background:#eef2f7;margin-top:4px;overflow:hidden}
+.mrow .mb i{display:block;height:100%;border-radius:3px;background:#94a3b8}
+.mrow.top .mb i{background:#0f766e}
+.mrow.top .mv{color:#0f766e}
+.mrow .ms{grid-column:2 / 4;font-size:11px;color:var(--sub);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#111827;color:#fff;font-size:13px;padding:9px 14px;border-radius:999px;z-index:1400;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:.92}
 .results{display:none;position:absolute;left:8px;right:8px;top:100%;margin-top:4px;max-height:62vh;overflow:auto;background:#fff;color:var(--ink);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.28);z-index:1001;-webkit-overflow-scrolling:touch}
 .results.open{display:block}
 .results .grp{font-size:11px;font-weight:700;color:var(--sub);padding:8px 12px 4px;background:#f8fafc;position:sticky;top:0}
@@ -74,7 +116,7 @@ footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
 </head>
 <body>
 <header>
-  <h1>店舗開発　交通量・駅乗降・周辺人口</h1>
+  <div class="topbar"><h1>店舗開発　交通量・駅乗降・周辺人口</h1><button class="cmpBtn" id="cmpOpen" type="button">比較<b id="cmpCount">0</b></button></div>
   <form class="search" id="searchForm">
     <input id="q" type="search" placeholder="住所・地名・緯度,経度・GoogleマップURL" enterkeyhint="search" autocomplete="off">
     <button>検索</button>
@@ -89,6 +131,7 @@ footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
 </div>
 <main>
   <div class="point" id="point">地図をタップするか、ボタンで地点を選んでください。</div>
+  <div class="saveRow" id="saveRow" style="display:none"><button id="saveBtn" class="primary" type="button">＋ 比較リストに保存</button><button id="cmpOpen2" type="button">比較リストを見る</button></div>
   <section class="card" id="trafficCard"><h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty">地点を選ぶと、一番近い調査区間の交通量を表示します。地図を拡大すると、各道路の昼間12時間交通量（台）が地図上に出ます。</div></section>
   <section class="card" id="stationCard"><h2>駅の乗降客数 <small>半径1km以内</small></h2><div class="empty">—</div></section>
   <section class="card" id="popCard"><h2>周辺人口 <small>令和2年国勢調査</small></h2><div class="empty">—</div></section>
@@ -97,6 +140,11 @@ footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
     <div id="metaInfo"></div>
   </footer>
 </main>
+<div class="sheet" id="sheet" role="dialog" aria-label="比較リスト">
+  <div class="sheetHead"><h2 id="sheetTitle">比較リスト</h2><button id="csvBtn" type="button">CSV出力</button><button id="sheetClose" class="ghost" type="button">閉じる</button></div>
+  <div class="sheetBody"><div class="sheetInner" id="sheetBody"></div></div>
+</div>
+<div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -245,7 +293,7 @@ async function loadTraffic(p, id) {
   p.cands = roads.slice(0, 5); nearIds = p.cands.map(x => x.r.c);
   if (!roads.length) {
     const missing = keys.every(k => !loadedTiles.has(k)) || res.every(([, t]) => t === null);
-    selectedId = null; drawRoads();
+    selectedId = null; drawRoads(); p.traffic = { none: true }; updateSaveUI();
     card.innerHTML = `<h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty">${missing && !META.traffic?.complete ? "この地域の交通量データはまだ作成中です。" : "この地点の周辺には交通量調査の対象道路がありません。"}</div>`;
     return;
   }
@@ -256,6 +304,7 @@ function selectRoad(censusId) {
   selectedId = censusId; drawRoads();
   const p = current, cands = p?.cands || [];
   const sel = { c: road.c, a: road.a, d: p ? roadDist(road, p.lat, p.lng) : NaN };
+  if (p) { p.traffic = { c: road.c, d: Number.isFinite(sel.d) ? Math.round(sel.d) : null, ...(road.a || {}) }; updateSaveUI(); }
   const roads = cands.map(x => ({ c: x.r.c, a: x.r.a, d: x.d }));
   const a = sel.a, d = Math.round(sel.d);
   let warn = "";
@@ -294,11 +343,12 @@ async function loadStations(p, id) {
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) keys.push(`${gy + dy}_${gx + dx}`);
   const cells = await Promise.all(keys.map(k => getJson(`${DATA}/stations/${k}.json`).catch(() => null)));
   if (id !== runId) return;
-  if (!META.stations) { card.innerHTML = `<h2>駅の乗降客数</h2><div class="empty">駅データはまだ作成中です。</div>`; return; }
+  if (!META.stations) { p.st = null; updateSaveUI(); card.innerHTML = `<h2>駅の乗降客数</h2><div class="empty">駅データはまだ作成中です。</div>`; return; }
   const list = cells.flat().filter(Boolean).map(s => ({ name: s[0], lat: s[1], lng: s[2], pax: s[3], ops: s[4], lines: s[5], d: haversine(p.lat, p.lng, s[1], s[2]) }))
     .filter(s => s.d <= STATION_MAX_M).sort((a, b) => a.d - b.d);
   for (const s of list) L.circleMarker([s.lat, s.lng], { radius: 7, color: "#fff", weight: 2, fillColor: "#7c3aed", fillOpacity: .95 }).bindTooltip(s.name + "駅").addTo(overlay);
   const total = list.reduce((v, s) => v + (s.pax || 0), 0);
+  p.st = { count: list.length, total, near: list[0] ? { name: list[0].name, d: Math.round(list[0].d), pax: list[0].pax } : null }; updateSaveUI();
   card.innerHTML = `<h2>駅の乗降客数 <small>半径1km以内 ${list.length}駅</small></h2>` + (list.length ? `
     ${list.length > 1 ? `<div class="note" style="margin:0 0 4px">合計 <b style="color:var(--ink)">${fmt(total)}</b> 人/日</div>` : ""}
     ${list.slice(0, 8).map(s => `<div class="st"><div><b>${esc(s.name)}駅</b><span>${esc([...new Set(s.ops)].join("・"))}${s.lines?.length ? "／" + esc(s.lines.join("・")) : ""}</span></div>
@@ -337,7 +387,7 @@ async function loadPopulation(p, id) {
   const codes = primaryCodesFor(p, Math.max(...POP_RADII));
   const files = await Promise.all(codes.map(c => getJson(`${DATA}/pop/${c}.json`).then(rows => ({ c, rows })).catch(() => ({ c, rows: null }))));
   if (id !== runId) return;
-  if (files.every(f => !f.rows)) { card.innerHTML = `<h2>周辺人口</h2><div class="empty">${META.pop ? "この地域の人口データはありません。" : "人口データはまだ作成中です。"}</div>`; return; }
+  if (files.every(f => !f.rows)) { p.pop = null; updateSaveUI(); card.innerHTML = `<h2>周辺人口</h2><div class="empty">${META.pop ? "この地域の人口データはありません。" : "人口データはまだ作成中です。"}</div>`; return; }
   const sums = POP_RADII.map(r => ({ r, pop: 0, hh: 0, a0: 0, a15: 0, a65: 0, ageBase: 0 }));
   for (const f of files) for (const row of f.rows || []) {
     const b = meshBounds(f.c, row[0]);
@@ -351,8 +401,11 @@ async function loadPopulation(p, id) {
   const rows = sums.map(s => {
     const ageSum = s.a0 + s.a15 + s.a65, cov = s.pop > 0 ? s.ageBase / s.pop : 0, age = ageSum > 0 && cov >= .85;
     const pct = v => age ? fmt(v / ageSum * 100, 1) + "%" : "—";
-    return { s, dens: s.pop / (Math.PI * s.r * s.r / 1e6), a0: pct(s.a0), a15: pct(s.a15), a65: pct(s.a65) };
+    return { s, dens: s.pop / (Math.PI * s.r * s.r / 1e6), a0: pct(s.a0), a15: pct(s.a15), a65: pct(s.a65), age, ageSum };
   });
+  p.pop = rows.map(x => ({ r: x.s.r, pop: Math.round(x.s.pop), hh: Math.round(x.s.hh), dens: Math.round(x.dens),
+    a0: x.age ? +(x.s.a0 / x.ageSum * 100).toFixed(1) : null, a15: x.age ? +(x.s.a15 / x.ageSum * 100).toFixed(1) : null, a65: x.age ? +(x.s.a65 / x.ageSum * 100).toFixed(1) : null }));
+  updateSaveUI();
   card.innerHTML = `<h2>周辺人口 <small>令和2年国勢調査・250mメッシュ按分</small></h2>
     <table><thead><tr><th>半径</th><th>人口</th><th>世帯</th><th>人口密度<br>(人/km²)</th></tr></thead><tbody>
     ${rows.map(x => `<tr><td><b>${x.s.r / 1000}km</b></td><td><b>${fmt(Math.round(x.s.pop))}</b></td><td>${fmt(Math.round(x.s.hh))}</td><td>${fmt(Math.round(x.dens))}</td></tr>`).join("")}
@@ -367,7 +420,7 @@ async function loadPopulation(p, id) {
 // ---------- 地点を選ぶ ----------
 function setPoint(lat, lng, label, zoom) {
   const id = ++runId;
-  current = { lat, lng, roads: [] };
+  current = { lat, lng, roads: [], label: label || "選択地点" };
   overlay.clearLayers(); selectedId = null; nearIds = [];
   if (marker) marker.remove();
   marker = L.marker([lat, lng]).addTo(map);
@@ -377,9 +430,11 @@ function setPoint(lat, lng, label, zoom) {
     <a href="https://www.google.com/maps/@${lat.toFixed(6)},${lng.toFixed(6)},${z}z" target="_blank" rel="noopener">Googleマップ</a>
     <a href="https://www.mlit.go.jp/road/ir/ir-data/census_visualizationR3/webmap.html#${z}/${ll}" target="_blank" rel="noopener">国交省MAP</a>`;
   try { history.replaceState(null, "", `#${lat.toFixed(6)},${lng.toFixed(6)}`); } catch (_) {}
-  loadTraffic(current, id).catch(e => { if (id === runId) $("trafficCard").innerHTML = `<h2>交通量</h2><div class="warn">読み込みに失敗しました：${esc(e.message)}</div>`; });
-  loadStations(current, id).catch(e => { if (id === runId) $("stationCard").innerHTML = `<h2>駅の乗降客数</h2><div class="warn">読み込みに失敗しました：${esc(e.message)}</div>`; });
-  loadPopulation(current, id).catch(e => { if (id === runId) $("popCard").innerHTML = `<h2>周辺人口</h2><div class="warn">読み込みに失敗しました：${esc(e.message)}</div>`; });
+  $("saveRow").style.display = "flex"; updateSaveUI();
+  const fail = k => { if (id === runId) { current[k] = null; updateSaveUI(); } };
+  loadTraffic(current, id).catch(e => { fail("traffic"); if (id === runId) $("trafficCard").innerHTML = `<h2>交通量</h2><div class="warn">読み込みに失敗しました：${esc(e.message)}</div>`; });
+  loadStations(current, id).catch(e => { fail("st"); if (id === runId) $("stationCard").innerHTML = `<h2>駅の乗降客数</h2><div class="warn">読み込みに失敗しました：${esc(e.message)}</div>`; });
+  loadPopulation(current, id).catch(e => { fail("pop"); if (id === runId) $("popCard").innerHTML = `<h2>周辺人口</h2><div class="warn">読み込みに失敗しました：${esc(e.message)}</div>`; });
 }
 map.on("click", e => setPoint(e.latlng.lat, e.latlng.lng, "タップした地点", map.getZoom()));
 $("centerBtn").onclick = () => { const c = map.getCenter(); setPoint(c.lat, c.lng, "地図の中心", map.getZoom()); };
@@ -466,6 +521,121 @@ $("searchForm").onsubmit = async ev => {
   });
 };
 map.on("click", hideResults);
+
+// ---------- 比較リスト（この端末のブラウザに保存） ----------
+const SAVE_KEY = "censusMobile.saved.v1", MAX_SAVED = 30;
+let saved = [];
+try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); if (!Array.isArray(saved)) saved = []; } catch (_) { saved = []; }
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(saved)); } catch (_) { showToast("この端末では保存できませんでした（プライベートブラウズ等）"); } $("cmpCount").textContent = saved.length; }
+function showToast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(showToast.t); showToast.t = setTimeout(() => el.classList.remove("on"), 1800); }
+const sameSpot = (a, b) => Math.abs(a.lat - b.lat) < 1e-6 && Math.abs(a.lng - b.lng) < 1e-6;
+const GENERIC = /^(タップした地点|地図の中心|選択地点|指定した座標|共有された地点|現在地)/;
+function snapshot(p) {
+  const t = p.traffic && !p.traffic.none ? p.traffic : null;
+  return {
+    lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6), savedAt: new Date().toISOString(),
+    traffic: t ? { c: t.c, d: t.d, route: t.route, routeNo: t.routeNo, kind: t.kind, t12: t.t12, t24: t.t24, up12: t.up12, dn12: t.dn12, s12: t.s12, l12: t.l12, lr: t.lr, cong: t.cong, lanes: t.lanes, width: t.width } : null,
+    st: p.st || null, pop: p.pop || null
+  };
+}
+function updateSaveUI() {
+  const btn = $("saveBtn"); if (!btn || !current) return;
+  const ready = current.traffic !== undefined && current.st !== undefined && current.pop !== undefined;
+  const ex = saved.find(x => sameSpot(x, current));
+  btn.disabled = !ready;
+  btn.textContent = !ready ? "計算中…" : ex ? `保存済み（${saved.indexOf(ex) + 1}）・最新の値で上書き` : "＋ 比較リストに保存";
+}
+$("saveBtn").onclick = () => {
+  if (!current) return;
+  const ex = saved.find(x => sameSpot(x, current));
+  if (ex) { Object.assign(ex, snapshot(current)); persist(); updateSaveUI(); return showToast(`「${ex.name}」を最新の値で上書きしました`); }
+  if (saved.length >= MAX_SAVED) return showToast(`保存は${MAX_SAVED}件までです。不要な地点を削除してください`);
+  const def = GENERIC.test(current.label) ? `地点${saved.length + 1}` : current.label;
+  const name = prompt("地点の名前（比較表・CSVに使います）", def);
+  if (name === null) return;
+  saved.push({ id: Date.now().toString(36), name: name.trim() || def, ...snapshot(current) });
+  persist(); updateSaveUI(); showToast(`保存しました（${saved.length}件）`);
+};
+
+// 指標の定義（比較カードとCSVで共通）
+const popOf = (x, r) => (x.pop || []).find(p => p.r === r) || {};
+const METRICS = [
+  { t: "昼間12時間交通量", u: "台", v: x => x.traffic?.t12, sub: x => x.traffic ? `${x.traffic.route || "路線名なし"}・地点から${fmt(x.traffic.d)}m` : "対象道路なし" },
+  { t: "24時間交通量", u: "台", v: x => x.traffic?.t24 },
+  { t: "大型車混入率（昼間12時間）", u: "%", d: 1, v: x => x.traffic?.lr },
+  { t: "駅乗降客数（半径1km以内の合計）", u: "人/日", v: x => x.st ? x.st.total : null, sub: x => x.st?.near ? `最寄り：${x.st.near.name}駅 ${fmt(x.st.near.d)}m（${x.st.count}駅）` : "1km以内に駅なし" },
+  { t: "人口（半径1km）", u: "人", v: x => popOf(x, 1000).pop },
+  { t: "人口（半径3km）", u: "人", v: x => popOf(x, 3000).pop },
+  { t: "人口（半径5km）", u: "人", v: x => popOf(x, 5000).pop },
+  { t: "世帯数（半径1km）", u: "世帯", v: x => popOf(x, 1000).hh },
+  { t: "人口密度（半径1km）", u: "人/km²", v: x => popOf(x, 1000).dens },
+  { t: "65歳以上の割合（半径1km）", u: "%", d: 1, v: x => popOf(x, 1000).a65 },
+  { t: "0〜14歳の割合（半径1km）", u: "%", d: 1, v: x => popOf(x, 1000).a0 }
+];
+function renderSheet() {
+  $("sheetTitle").textContent = `比較リスト（${saved.length}件）`;
+  $("csvBtn").disabled = !saved.length;
+  if (!saved.length) { $("sheetBody").innerHTML = `<div class="card"><div class="empty">まだ地点がありません。地点を選んで「＋ 比較リストに保存」を押すと、ここに並びます。保存した地点はこの端末のブラウザに残ります。</div></div>`; return; }
+  const list = saved.map((x, i) => `<div class="pl"><span class="badge">${i + 1}</span>
+      <div class="nm"><b>${esc(x.name)}</b><span>${x.lat.toFixed(5)}, ${x.lng.toFixed(5)}・${new Date(x.savedAt).toLocaleDateString("ja-JP")}</span></div>
+      <button data-act="map" data-i="${i}">地図</button><button data-act="ren" data-i="${i}">名前</button><button data-act="del" data-i="${i}" class="del">削除</button></div>`).join("");
+  const cards = METRICS.map(m => {
+    const vals = saved.map(m.v), nums = vals.filter(v => Number.isFinite(+v) && v !== null).map(Number), max = nums.length ? Math.max(...nums) : 0;
+    const rows = saved.map((x, i) => {
+      const v = vals[i], ok = v !== null && v !== undefined && Number.isFinite(+v), top = ok && saved.length > 1 && +v === max && max > 0;
+      const w = ok && max > 0 ? Math.max(2, +v / max * 100) : 0, sub = m.sub ? m.sub(x) : "";
+      return `<div class="mrow${top ? " top" : ""}"><span class="badge">${i + 1}</span><span class="mn">${esc(x.name)}</span>
+        <span class="mv${ok ? "" : " na"}">${ok ? fmt(v, m.d || 0) : "データなし"}</span><div class="mb"><i style="width:${w}%"></i></div>${sub ? `<div class="ms">${esc(sub)}</div>` : ""}</div>`;
+    }).join("");
+    return `<section class="mcard"><h3>${m.t}<small>${m.u}${saved.length > 1 ? "・緑＝最大" : ""}</small></h3>${rows}</section>`;
+  }).join("");
+  $("sheetBody").innerHTML = `<div class="card"><h2>保存した地点 <small>この端末に保存</small></h2>${list}</div><div class="mgrid">${cards}</div>
+    <div class="card" style="margin-top:10px"><div class="note" style="margin:0">交通量は保存時に選んでいた調査区間の値です。人口は250mメッシュの按分による概算です。CSVには全項目が入ります。</div>
+    <div class="saveRow" style="margin:10px 0 0"><button id="clearAll" type="button" style="border-color:#b91c1c;color:#b91c1c">すべて削除</button></div></div>`;
+  $("sheetBody").querySelectorAll("button[data-act]").forEach(b => b.onclick = () => {
+    const i = +b.dataset.i, x = saved[i];
+    if (b.dataset.act === "map") { closeSheet(); setPoint(x.lat, x.lng, x.name, 17); }
+    else if (b.dataset.act === "ren") { const n = prompt("地点の名前", x.name); if (n !== null && n.trim()) { x.name = n.trim(); persist(); renderSheet(); } }
+    else if (b.dataset.act === "del") { if (confirm(`「${x.name}」を比較リストから削除しますか？`)) { saved.splice(i, 1); persist(); renderSheet(); updateSaveUI(); } }
+  });
+  $("clearAll").onclick = () => { if (confirm(`保存した${saved.length}件をすべて削除しますか？`)) { saved = []; persist(); renderSheet(); updateSaveUI(); } };
+}
+function openSheet() { renderSheet(); $("sheet").classList.add("open"); document.body.style.overflow = "hidden"; }
+function closeSheet() { $("sheet").classList.remove("open"); document.body.style.overflow = ""; }
+$("cmpOpen").onclick = openSheet; $("cmpOpen2").onclick = openSheet; $("sheetClose").onclick = closeSheet;
+
+// CSV（Excelで文字化けしないようBOM付きUTF-8）
+function buildCsv() {
+  const n = v => v === null || v === undefined || !Number.isFinite(+v) ? "" : String(v);
+  const head = ["No", "名前", "緯度", "経度", "保存日時", "路線名", "路線番号", "道路種別", "区間番号", "地点から区間までの距離(m)",
+    "昼間12時間交通量(台)", "24時間交通量(台)", "上り12時間(台)", "下り12時間(台)", "小型車12時間(台)", "大型車12時間(台)", "大型車混入率(%)", "混雑度", "車線数", "車道幅員(m)",
+    "1km以内の駅数", "1km以内の駅乗降客数合計(人/日)", "最寄り駅", "最寄り駅までの距離(m)", "最寄り駅の乗降客数(人/日)"];
+  for (const r of [1, 3, 5]) head.push(`人口${r}km(人)`, `世帯${r}km`, `人口密度${r}km(人/km2)`, `0-14歳${r}km(%)`, `15-64歳${r}km(%)`, `65歳以上${r}km(%)`);
+  const rows = saved.map((x, i) => {
+    const t = x.traffic || {}, st = x.st || {};
+    const row = [i + 1, x.name, x.lat, x.lng, new Date(x.savedAt).toLocaleString("ja-JP"), t.route || "", n(t.routeNo), t.kind || "", t.c || "", n(t.d),
+      n(t.t12), n(t.t24), n(t.up12), n(t.dn12), n(t.s12), n(t.l12), n(t.lr), n(t.cong), n(t.lanes), n(t.width),
+      n(st.count), n(st.total), st.near ? st.near.name + "駅" : "", n(st.near?.d), n(st.near?.pax)];
+    for (const r of [1000, 3000, 5000]) { const p = popOf(x, r); row.push(n(p.pop), n(p.hh), n(p.dens), n(p.a0), n(p.a15), n(p.a65)); }
+    return row;
+  });
+  const q = v => { const s = String(v ?? ""); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  return "\uFEFF" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n") + "\r\n";
+}
+$("csvBtn").onclick = async () => {
+  if (!saved.length) return;
+  const d = new Date(), pad = v => String(v).padStart(2, "0");
+  const fname = `地点比較_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.csv`;
+  const blob = new Blob([buildCsv()], { type: "text/csv;charset=utf-8" });
+  // スマホは共有メニュー（メール・ファイル保存・Teams等）、PCはダウンロード
+  try {
+    const file = new File([blob], fname, { type: "text/csv" });
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPhone|iPad|Android/i.test(navigator.userAgent)) { await navigator.share({ files: [file], title: fname }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fname; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+};
+$("cmpCount").textContent = saved.length;
 
 // ---------- 起動 ----------
 let META = {};
