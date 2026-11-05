@@ -71,6 +71,9 @@ async function readJson(file, fallback) { try { return JSON.parse(await fs.readF
 async function updateMeta(key, info) {
   const file = path.join(OUT, "meta.json");
   const meta = await readJson(file, {});
+  // 中身が前回と同じなら日時も変えない（無駄なコミット＝Pagesの再公開を起こさない）
+  const prev = meta[key] || {}, { builtAt: _, ...prevInfo } = prev;
+  if (JSON.stringify(prevInfo) === JSON.stringify(info)) return;
   meta[key] = { ...info, builtAt: new Date().toISOString() };
   await writeJson(file, meta);
 }
