@@ -54,6 +54,10 @@ footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid #cbd5e1;border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
 .leaflet-container{font:inherit}
+.tl-wrap{background:none;border:0}
+.tl{position:absolute;transform:translate(-50%,-50%);background:#fff;color:#334155;border:1.5px solid #64748b;border-radius:6px;padding:0 5px;font-size:11px;line-height:17px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.tl.near{border-color:#2563eb;color:#1d4ed8}
+.tl.sel{border-color:#dc2626;background:#dc2626;color:#fff;font-size:13px;line-height:20px;padding:0 7px;z-index:2}
 </style>
 </head>
 <body>
@@ -72,7 +76,7 @@ footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
 </div>
 <main>
   <div class="point" id="point">地図をタップするか、ボタンで地点を選んでください。</div>
-  <section class="card" id="trafficCard"><h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty">地点を選ぶと、一番近い調査区間の交通量を表示します。</div></section>
+  <section class="card" id="trafficCard"><h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty">地点を選ぶと、一番近い調査区間の交通量を表示します。地図を拡大すると、各道路の昼間12時間交通量（台）が地図上に出ます。</div></section>
   <section class="card" id="stationCard"><h2>駅の乗降客数 <small>半径1km以内</small></h2><div class="empty">—</div></section>
   <section class="card" id="popCard"><h2>周辺人口 <small>令和2年国勢調査</small></h2><div class="empty">—</div></section>
   <footer id="foot">
@@ -98,7 +102,7 @@ function getJson(url) {
 }
 
 // ---------- 地図 ----------
-const map = L.map("map", { zoomControl: true, attributionControl: true }).setView([35.681, 139.767], 15);
+const map = L.map("map", { zoomControl: true, attributionControl: true, preferCanvas: true }).setView([35.681, 139.767], 15);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap contributors" }).addTo(map);
 const roadLayer = L.layerGroup().addTo(map), overlay = L.layerGroup().addTo(map);
 let marker = null, current = null, runId = 0;
@@ -133,38 +137,113 @@ function trafficTiles(lat, lng) {
   if (fy - y0 < .1) ys.push(y0 - 1); else if (fy - y0 > .9) ys.push(y0 + 1);
   return xs.flatMap(x => ys.map(y => `${x}_${y}`));
 }
-async function loadTraffic(p, id) {
-  const card = $("trafficCard");
-  card.innerHTML = `<h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty"><span class="spin"></span>調査区間を探しています…</div>`;
-  const tiles = await Promise.all(trafficTiles(p.lat, p.lng).map(k => getJson(`${DATA}/roads/${k}.json`).catch(() => null)));
-  if (id !== runId) return;
-  const byId = new Map();
-  for (const t of tiles) for (const r of t || []) {
-    const prev = byId.get(r.c);
-    if (prev) prev.g.push(...r.g); else byId.set(r.c, { ...r, g: [...r.g] });
+// 地図に表示中の道路（タイル単位で読み込み、区間番号ごとに形状をまとめる）
+const roadStore = new Map(), loadedTiles = new Set();
+let selectedId = null, nearIds = [];
+async function ensureTiles(keys) {
+  const todo = keys.filter(k => !loadedTiles.has(k));
+  const res = await Promise.all(todo.map(k => getJson(`${DATA}/roads/${k}.json`).then(t => [k, t]).catch(() => [k, undefined])));
+  for (const [k, t] of res) {
+    if (t === undefined) continue; // 通信エラーは次回再試行
+    loadedTiles.add(k);
+    for (const r of t || []) {
+      let s = roadStore.get(r.c);
+      if (!s) roadStore.set(r.c, s = { c: r.c, a: r.a, g: [], seen: new Set(), box: [Infinity, Infinity, -Infinity, -Infinity] });
+      for (const g of r.g) {
+        const key = g.join(","); if (s.seen.has(key)) continue; s.seen.add(key); s.g.push(g);
+        for (let i = 0; i + 1 < g.length; i += 2) { const x = g[i] / 1e5, y = g[i + 1] / 1e5; s.box[0] = Math.min(s.box[0], x); s.box[1] = Math.min(s.box[1], y); s.box[2] = Math.max(s.box[2], x); s.box[3] = Math.max(s.box[3], y); }
+      }
+    }
   }
-  const roads = [...byId.values()].map(r => ({ ...r, d: roadDist(r, p.lat, p.lng) })).filter(r => Number.isFinite(r.d)).sort((a, b) => a.d - b.d);
-  current.roads = roads;
-  if (!roads.length) {
-    const missing = tiles.every(t => t === null);
-    card.innerHTML = `<h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty">${missing && !META.traffic?.complete ? "この地域の交通量データはまだ作成中です。" : "この地点の周辺には交通量調査の対象道路がありません。"}</div>`;
-    roadLayer.clearLayers(); return;
-  }
-  selectRoad(roads[0].c);
+  return res;
 }
-function selectRoad(censusId) {
-  const p = current, roads = p.roads || [], sel = roads.find(r => r.c === censusId);
-  if (!sel) return;
+function viewTiles() {
+  const b = map.getBounds(), n = 2 ** TILE_ZOOM;
+  const tx = lng => Math.floor((lng + 180) / 360 * n), ty = lat => { const r = lat * Math.PI / 180; return Math.floor((1 - Math.asinh(Math.tan(r)) / Math.PI) / 2 * n); };
+  const x0 = tx(b.getWest()), x1 = tx(b.getEast()), y0 = ty(b.getNorth()), y1 = ty(b.getSouth()), keys = [];
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) keys.push(`${x}_${y}`);
+  return keys.length <= 16 ? keys : [];
+}
+// 地図上の数値ラベル：重ならないように、選択中→近くの候補→交通量の多い順に置く
+const ROAD_MIN_ZOOM = 13, LABEL_MIN_ZOOM = 14;
+function labelPoint(r, b) {
+  let best = null;
+  for (const g of r.g) {
+    const inView = [];
+    for (let i = 0; i + 1 < g.length; i += 2) { const lat = g[i + 1] / 1e5, lng = g[i] / 1e5; if (b.contains([lat, lng])) inView.push([lat, lng]); }
+    if (inView.length && (!best || inView.length > best.length)) best = inView;
+  }
+  if (!best) return null;
+  if (best.length === 1) return best[0];
+  const m = (best.length - 1) / 2, i = Math.floor(m), j = Math.min(best.length - 1, i + 1), t = m - i;
+  return [best[i][0] + (best[j][0] - best[i][0]) * t, best[i][1] + (best[j][1] - best[i][1]) * t];
+}
+function drawRoads() {
   roadLayer.clearLayers();
-  const near = roads.slice(0, 5).map(r => r.c);
-  for (const r of roads) {
-    const isSel = r.c === sel.c, isNear = near.includes(r.c);
+  const z = map.getZoom();
+  if (z < ROAD_MIN_ZOOM && !selectedId) return;
+  const b = map.getBounds().pad(.15), vis = [];
+  for (const r of roadStore.values()) {
+    if (r.box[2] < b.getWest() || r.box[0] > b.getEast() || r.box[3] < b.getSouth() || r.box[1] > b.getNorth()) continue;
+    if (z < ROAD_MIN_ZOOM && r.c !== selectedId) continue;
+    vis.push(r);
+  }
+  const rank = r => r.c === selectedId ? 0 : nearIds.includes(r.c) ? 1 : 2;
+  vis.sort((a, c) => rank(c) - rank(a)); // 選択中を最後に描いて一番上に
+  for (const r of vis) {
+    const k = rank(r);
     for (const g of r.g) {
-      const line = L.polyline(toLatLngs(g), { color: isSel ? "#dc2626" : isNear ? "#2563eb" : "#64748b", weight: isSel ? 7 : isNear ? 4 : 2.5, opacity: isSel ? .9 : isNear ? .75 : .45 });
+      const line = L.polyline(toLatLngs(g), { color: k === 0 ? "#dc2626" : k === 1 ? "#2563eb" : "#475569", weight: k === 0 ? 7 : k === 1 ? 4.5 : 3, opacity: k === 0 ? .9 : k === 1 ? .75 : .5 });
       line.on("click", ev => { L.DomEvent.stopPropagation(ev); selectRoad(r.c); });
       line.addTo(roadLayer);
     }
   }
+  if (z < LABEL_MIN_ZOOM) return;
+  const inner = map.getBounds(), placed = [], size = map.getSize();
+  const order = vis.filter(r => r.a && r.a.t12 != null).sort((a, c) => rank(a) - rank(c) || c.a.t12 - a.a.t12);
+  for (const r of order) {
+    const pt = labelPoint(r, inner); if (!pt) continue;
+    const text = fmt(r.a.t12), w = text.length * 7.5 + 14, h = 20, c = map.latLngToContainerPoint(pt);
+    const box = [c.x - w / 2, c.y - h / 2, c.x + w / 2, c.y + h / 2];
+    if (box[0] < 0 || box[1] < 0 || box[2] > size.x || box[3] > size.y) continue;
+    if (placed.some(p => !(box[2] + 4 < p[0] || box[0] - 4 > p[2] || box[3] + 2 < p[1] || box[1] - 2 > p[3]))) continue;
+    // 隣り合う区間は同じ値のことが多いので、近くに同じ数値があれば省く（選択中・候補は除く）
+    if (rank(r) === 2 && placed.some(p => p[4] === text && Math.hypot((p[0] + p[2]) / 2 - c.x, (p[1] + p[3]) / 2 - c.y) < 160)) continue;
+    box.push(text); placed.push(box);
+    const k = rank(r);
+    const m = L.marker(pt, { icon: L.divIcon({ className: "tl-wrap", html: `<div class="tl${k === 0 ? " sel" : k === 1 ? " near" : ""}">${text}</div>`, iconSize: [0, 0] }), zIndexOffset: k === 0 ? 1000 : k === 1 ? 500 : 0, keyboard: false });
+    m.on("click", ev => { L.DomEvent.stopPropagation(ev); selectRoad(r.c); });
+    m.addTo(roadLayer);
+  }
+}
+let viewTimer = 0;
+map.on("moveend zoomend", () => {
+  clearTimeout(viewTimer);
+  viewTimer = setTimeout(async () => { if (map.getZoom() >= ROAD_MIN_ZOOM) await ensureTiles(viewTiles()); drawRoads(); }, 150);
+});
+
+async function loadTraffic(p, id) {
+  const card = $("trafficCard");
+  card.innerHTML = `<h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty"><span class="spin"></span>調査区間を探しています…</div>`;
+  const keys = trafficTiles(p.lat, p.lng);
+  const res = await ensureTiles(keys);
+  if (id !== runId) return;
+  const roads = [...roadStore.values()].map(r => ({ r, d: roadDist(r, p.lat, p.lng) })).filter(x => Number.isFinite(x.d) && x.d < 3000).sort((a, b) => a.d - b.d);
+  p.cands = roads.slice(0, 5); nearIds = p.cands.map(x => x.r.c);
+  if (!roads.length) {
+    const missing = keys.every(k => !loadedTiles.has(k)) || res.every(([, t]) => t === null);
+    selectedId = null; drawRoads();
+    card.innerHTML = `<h2>交通量 <small>R3道路交通センサス</small></h2><div class="empty">${missing && !META.traffic?.complete ? "この地域の交通量データはまだ作成中です。" : "この地点の周辺には交通量調査の対象道路がありません。"}</div>`;
+    return;
+  }
+  selectRoad(roads[0].r.c);
+}
+function selectRoad(censusId) {
+  const road = roadStore.get(censusId); if (!road) return;
+  selectedId = censusId; drawRoads();
+  const p = current, cands = p?.cands || [];
+  const sel = { c: road.c, a: road.a, d: p ? roadDist(road, p.lat, p.lng) : NaN };
+  const roads = cands.map(x => ({ c: x.r.c, a: x.r.a, d: x.d }));
   const a = sel.a, d = Math.round(sel.d);
   let warn = "";
   if (d > 250) warn = "選んだ地点から250m以上離れた調査区間です。前面道路とは限らないため、地図で位置を確認してください。";
@@ -174,7 +253,7 @@ function selectRoad(censusId) {
   if (!a) body = `<div class="empty">区間形状はありますが、箇所別基本表に値がありません（区間番号 ${sel.c}）。</div>`;
   else body = `
     <div class="route">${esc(a.route || "路線名なし")}${a.routeNo != null ? `（${fmt(a.routeNo)}号）` : ""}</div>
-    <div class="note" style="margin-top:2px">${esc(a.kind || "")}　地点から ${fmt(d)}m</div>
+    <div class="note" style="margin-top:2px">${esc(a.kind || "")}${Number.isFinite(d) ? `　地点から ${fmt(d)}m` : ""}</div>
     <div style="display:flex;gap:18px;margin-top:8px;flex-wrap:wrap">
       <div><div class="note" style="margin:0">昼間12時間</div><div class="big">${fmt(a.t12)}<small>台</small></div></div>
       <div><div class="note" style="margin:0">24時間</div><div class="big">${fmt(a.t24)}<small>台</small></div></div>
@@ -189,7 +268,8 @@ function selectRoad(censusId) {
       <dt>観測</dt><dd>${esc([a.obs, a.hours].filter(Boolean).join("・") || "—")}</dd>
     </dl>`;
   $("trafficCard").innerHTML = `<h2>交通量 <small>区間番号 ${sel.c}</small></h2>${body}${warn ? `<div class="warn">${warn}</div>` : ""}
-    ${roads.length > 1 ? `<div class="note">近くの調査区間（タップで切替・地図の線もタップできます）</div><div class="chips">${chips}</div>` : ""}`;
+    <div class="note">地図上の数字は昼間12時間交通量（台）です。数字や線をタップすると、その区間に切り替わります。</div>
+    ${roads.length > 1 ? `<div class="note">近くの調査区間</div><div class="chips">${chips}</div>` : ""}`;
   $("trafficCard").querySelectorAll(".chip").forEach(b => b.onclick = () => selectRoad(b.dataset.c));
 }
 
@@ -275,7 +355,7 @@ async function loadPopulation(p, id) {
 function setPoint(lat, lng, label, zoom) {
   const id = ++runId;
   current = { lat, lng, roads: [] };
-  overlay.clearLayers(); roadLayer.clearLayers();
+  overlay.clearLayers(); selectedId = null; nearIds = [];
   if (marker) marker.remove();
   marker = L.marker([lat, lng]).addTo(map);
   map.setView([lat, lng], zoom || Math.max(map.getZoom(), 16));
