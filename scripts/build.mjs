@@ -135,6 +135,9 @@ async function buildStations() {
   }
   await fs.rm(path.join(OUT, "stations"), { recursive: true, force: true });
   for (const [key, list] of cells) await writeJson(path.join(OUT, "stations", `${key}.json`), list);
+  // 検索用の駅名一覧 [駅名, 緯度, 経度, 事業者, 乗降客数]
+  const index = [...groups.values()].map(s => [s.name, +(s.latSum / s.n).toFixed(6), +(s.lngSum / s.n).toFixed(6), [...s.ops].slice(0, 3).join("・"), s.pax]);
+  await writeJson(path.join(OUT, "stations-index.json"), index);
   await updateMeta("stations", { count: groups.size, cells: cells.size, gridDeg: STATION_GRID_DEG, source: "国土数値情報 駅別乗降客数 S12-25（2024年度）国土交通省 CC BY 4.0" });
   log(`駅別乗降客数：${groups.size}駅 / ${cells.size}セル`);
 }

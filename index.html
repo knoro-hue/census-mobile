@@ -54,6 +54,15 @@ footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid #cbd5e1;border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
 .leaflet-container{font:inherit}
+.results{display:none;position:absolute;left:8px;right:8px;top:100%;margin-top:4px;max-height:62vh;overflow:auto;background:#fff;color:var(--ink);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.28);z-index:1001;-webkit-overflow-scrolling:touch}
+.results.open{display:block}
+.results .grp{font-size:11px;font-weight:700;color:var(--sub);padding:8px 12px 4px;background:#f8fafc;position:sticky;top:0}
+.results button{display:block;width:100%;text-align:left;font:inherit;background:#fff;border:0;border-top:1px solid var(--line);padding:10px 12px;color:var(--ink)}
+.results button:active{background:#eef2ff}
+.results b{font-size:15px}
+.results span{display:block;font-size:11px;color:var(--sub);margin-top:1px}
+.results .msg{padding:12px;font-size:13px;color:var(--sub)}
+.results .close{color:var(--accent);font-weight:700;text-align:center}
 .tl-wrap{background:none;border:0}
 .tl{position:absolute;transform:translate(-50%,-50%);background:#fff;color:#334155;border:1.5px solid #64748b;border-radius:6px;padding:0 5px;font-size:11px;line-height:17px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .tl.near{border-color:#2563eb;color:#1d4ed8}
@@ -67,6 +76,7 @@ footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
     <input id="q" type="search" placeholder="住所・地名・緯度,経度・GoogleマップURL" enterkeyhint="search" autocomplete="off">
     <button>検索</button>
   </form>
+  <div class="results" id="results"></div>
 </header>
 <div class="banner" id="banner"></div>
 <div id="map"></div>
@@ -385,17 +395,62 @@ function parseLatLng(s) {
   const m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || s.match(/^\s*(-?\d{1,2}\.\d+)\s*[, ]\s*(-?\d{2,3}\.\d+)\s*$/);
   return m ? { lat: +m[1], lng: +m[2] } : null;
 }
+// 駅名の一覧（検索用）。初回の検索時に1回だけ読む
+let stationIndex = null;
+async function loadStationIndex() {
+  if (stationIndex) return stationIndex;
+  try { stationIndex = (await getJson(`${DATA}/stations-index.json`)) || []; } catch (_) { stationIndex = []; }
+  return stationIndex;
+}
+const norm = t => String(t || "").normalize("NFKC").toLowerCase().replace(/\s+/g, "");
+function showResults(html) { $("results").innerHTML = html; $("results").classList.add("open"); }
+function hideResults() { $("results").classList.remove("open"); }
+let searchSeq = 0;
 $("searchForm").onsubmit = async ev => {
   ev.preventDefault(); const q = $("q").value.trim(); if (!q) return; $("q").blur();
-  const ll = parseLatLng(q); if (ll) return setPoint(ll.lat, ll.lng, "指定した座標", 17);
-  toastPoint('<span class="spin"></span>検索中…');
-  try {
-    const r = await fetch("https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + encodeURIComponent(q));
-    const items = r.ok ? await r.json() : [];
-    if (!items.length) return toastPoint("見つかりませんでした。住所を詳しく入れるか、地図をタップしてください。");
-    const [lng, lat] = items[0].geometry.coordinates; setPoint(+lat, +lng, items[0].properties?.title || q, 17);
-  } catch (e) { toastPoint("検索に失敗しました（" + esc(e.message) + "）。地図をタップして地点を選んでください。"); }
+  const ll = parseLatLng(q); if (ll) { hideResults(); return setPoint(ll.lat, ll.lng, "指定した座標", 17); }
+  const seq = ++searchSeq;
+  showResults('<div class="msg"><span class="spin"></span>検索中…</div>');
+  const nq = norm(q).replace(/駅$/, "");
+  const [stations, addr] = await Promise.all([
+    loadStationIndex().then(list => {
+      const hits = [];
+      for (const s of list) {
+        const n = norm(s[0]); if (!n.includes(nq)) continue;
+        hits.push({ s, score: (n === nq ? 0 : n.startsWith(nq) ? 1 : 2) * 1e9 - (s[4] || 0) });
+      }
+      return hits.sort((a, b) => a.score - b.score).slice(0, 10).map(h => h.s);
+    }),
+    fetch("https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + encodeURIComponent(q))
+      .then(r => r.ok ? r.json() : []).catch(() => null)
+  ]);
+  if (seq !== searchSeq) return;
+  const items = [];
+  let html = "";
+  if (stations.length) {
+    html += '<div class="grp">駅</div>';
+    for (const s of stations) { items.push({ lat: s[1], lng: s[2], label: s[0] + "駅" }); html += `<button data-i="${items.length - 1}"><b>${esc(s[0])}駅</b><span>${esc(s[3] || "")}${s[4] != null ? "　" + fmt(s[4]) + "人/日" : ""}</span></button>`; }
+  }
+  if (Array.isArray(addr) && addr.length) {
+    // 入力した語を含む住所を先に。同じ順位なら短い（＝大きな地域の）住所を先に
+    const list = addr.map((a, i) => ({ a, i, t: a.properties?.title || "" }))
+      .sort((x, y) => (norm(y.t).includes(norm(q)) - norm(x.t).includes(norm(q))) || x.t.length - y.t.length || x.i - y.i).slice(0, 30);
+    html += `<div class="grp">住所・地名（${addr.length > 30 ? "上位30件" : addr.length + "件"}）</div>`;
+    for (const { a, t } of list) {
+      const [lng, lat] = a.geometry?.coordinates || [];
+      if (!Number.isFinite(+lat) || !Number.isFinite(+lng)) continue;
+      items.push({ lat: +lat, lng: +lng, label: t }); html += `<button data-i="${items.length - 1}"><b>${esc(t)}</b></button>`;
+    }
+  }
+  if (!items.length) html = `<div class="msg">${addr === null ? "住所検索に接続できませんでした。" : "見つかりませんでした。"}駅名や「市区町村＋地名」で入れ直すか、地図をタップしてください。</div>`;
+  html += '<button class="close" data-close="1">閉じる</button>';
+  showResults(html);
+  $("results").querySelectorAll("button").forEach(b => b.onclick = () => {
+    hideResults(); if (b.dataset.close) return;
+    const it = items[+b.dataset.i]; setPoint(it.lat, it.lng, it.label, 16);
+  });
 };
+map.on("click", hideResults);
 
 // ---------- 起動 ----------
 let META = {};
