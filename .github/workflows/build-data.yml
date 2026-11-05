@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       steps:
-        description: "作成するデータ（stations=駅, pop=人口, traffic=交通量。カンマ区切り）"
-        default: "stations,pop,traffic"
+        description: "作成するデータ（muni=市区町村名, stations=駅, pop=人口, traffic=交通量。カンマ区切り）"
+        default: "muni,stations,pop,traffic"
       force:
         description: "作成済みのデータも取り直す"
         type: boolean
@@ -30,13 +30,18 @@ jobs:
     timeout-minutes: 345
     env:
       FORCE: ${{ github.event.inputs.force || 'false' }}
-      STEPS: ${{ github.event.inputs.steps || 'stations,pop,traffic' }}
+      STEPS: ${{ github.event.inputs.steps || 'muni,stations,pop,traffic' }}
       TIME_BUDGET_MIN: "300"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      - name: 市区町村名
+        if: contains(env.STEPS, 'muni')
+        continue-on-error: true
+        run: node scripts/build.mjs muni
 
       - name: 駅別乗降客数
         if: contains(env.STEPS, 'stations')

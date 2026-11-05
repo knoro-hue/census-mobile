@@ -344,11 +344,28 @@ async function buildTraffic() {
   log(`交通量：道路タイル 計${total}枚（今回 ${written}枚）${stopped ? "／時間切れのため次回続きから" : "／完了"}`);
 }
 
+// ---------------- 市区町村名（検索結果の住所表示用） ----------------
+async function buildMuni() {
+  const buf = await fetchRetry("https://maps.gsi.go.jp/js/muni.js");
+  if (!buf) throw new Error("muni.js が見つかりません");
+  const text = buf.toString("utf8"), map = {};
+  const re = /GSI\.MUNI_ARRAY\["(\d{4,5})"\]\s*=\s*['"]([^'"]+)['"]/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const parts = m[2].split(","), pref = parts[1] || "", muni = (parts[3] || "").replace(/[\s\u3000]+/g, "");
+    if (pref) map[m[1].padStart(5, "0")] = pref + muni;
+  }
+  if (Object.keys(map).length < 1000) throw new Error("市区町村辞書の件数が少なすぎます: " + Object.keys(map).length);
+  await writeJson(path.join(OUT, "muni.json"), map);
+  log(`市区町村名：${Object.keys(map).length}件`);
+}
+
 // ---------------- 実行 ----------------
-const steps = (process.argv.slice(2).join(",") || "stations,pop,traffic").split(",").map(s => s.trim()).filter(Boolean);
+const steps = (process.argv.slice(2).join(",") || "muni,stations,pop,traffic").split(",").map(s => s.trim()).filter(Boolean);
 await fs.mkdir(OUT, { recursive: true }); await fs.mkdir(CACHE, { recursive: true });
 for (const s of steps) {
-  if (s === "stations") await buildStations();
+  if (s === "muni") await buildMuni();
+  else if (s === "stations") await buildStations();
   else if (s === "pop") await buildPopulation();
   else if (s === "traffic") await buildTraffic();
   else throw new Error("不明なステップ: " + s);

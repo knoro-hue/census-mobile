@@ -11,7 +11,7 @@
 :root{--bg:#f3f5f8;--card:#fff;--ink:#17202b;--sub:#667085;--line:#e4e7ec;--navy:#1e3a5f;--accent:#2563eb;--road:#dc2626;--warn-bg:#fff7e6;--warn:#8a5a00}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
-header{position:sticky;top:0;z-index:1000;background:var(--navy);color:#fff;padding:10px 12px calc(10px);padding-top:max(10px,env(safe-area-inset-top))}
+header{position:sticky;top:0;z-index:1100;background:var(--navy);color:#fff;padding:10px 12px calc(10px);padding-top:max(10px,env(safe-area-inset-top))}
 header h1{margin:0 0 8px;font-size:15px;font-weight:800;letter-spacing:.02em}
 .search{display:flex;gap:6px}
 .search input{flex:1;min-width:0;font:inherit;font-size:16px;padding:9px 10px;border-radius:9px;border:0}
@@ -60,6 +60,9 @@ footer{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6}
 .results button{display:block;width:100%;text-align:left;font:inherit;background:#fff;border:0;border-top:1px solid var(--line);padding:10px 12px;color:var(--ink)}
 .results button:active{background:#eef2ff}
 .results b{font-size:15px}
+.results .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.results .row b{flex:none}
+.results .row i{font-style:normal;font-size:11px;color:var(--sub);text-align:right;min-width:0}
 .results span{display:block;font-size:11px;color:var(--sub);margin-top:1px}
 .results .msg{padding:12px;font-size:13px;color:var(--sub)}
 .results .close{color:var(--accent);font-weight:700;text-align:center}
@@ -412,7 +415,7 @@ $("searchForm").onsubmit = async ev => {
   const seq = ++searchSeq;
   showResults('<div class="msg"><span class="spin"></span>検索中…</div>');
   const nq = norm(q).replace(/駅$/, "");
-  const [stations, addr] = await Promise.all([
+  const [stations, addr, muni] = await Promise.all([
     loadStationIndex().then(list => {
       const hits = [];
       for (const s of list) {
@@ -422,7 +425,8 @@ $("searchForm").onsubmit = async ev => {
       return hits.sort((a, b) => a.score - b.score).slice(0, 10).map(h => h.s);
     }),
     fetch("https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + encodeURIComponent(q))
-      .then(r => r.ok ? r.json() : []).catch(() => null)
+      .then(r => r.ok ? r.json() : []).catch(() => null),
+    getJson(`${DATA}/muni.json`).catch(() => null)
   ]);
   if (seq !== searchSeq) return;
   const items = [];
@@ -432,14 +436,25 @@ $("searchForm").onsubmit = async ev => {
     for (const s of stations) { items.push({ lat: s[1], lng: s[2], label: s[0] + "駅" }); html += `<button data-i="${items.length - 1}"><b>${esc(s[0])}駅</b><span>${esc(s[3] || "")}${s[4] != null ? "　" + fmt(s[4]) + "人/日" : ""}</span></button>`; }
   }
   if (Array.isArray(addr) && addr.length) {
-    // 入力した語を含む住所を先に。同じ順位なら短い（＝大きな地域の）住所を先に
-    const list = addr.map((a, i) => ({ a, i, t: a.properties?.title || "" }))
-      .sort((x, y) => (norm(y.t).includes(norm(q)) - norm(x.t).includes(norm(q))) || x.t.length - y.t.length || x.i - y.i).slice(0, 30);
-    html += `<div class="grp">住所・地名（${addr.length > 30 ? "上位30件" : addr.length + "件"}）</div>`;
-    for (const { a, t } of list) {
+    // 同じ市区町村の同じ地名は1件にまとめる。入力した語を含むもの→短い名前の順
+    const seen = new Set(), list = [];
+    addr.forEach((a, i) => {
+      const t = a.properties?.title || "", code = String(a.properties?.addressCode || "").padStart(5, "0");
       const [lng, lat] = a.geometry?.coordinates || [];
-      if (!Number.isFinite(+lat) || !Number.isFinite(+lng)) continue;
-      items.push({ lat: +lat, lng: +lng, label: t }); html += `<button data-i="${items.length - 1}"><b>${esc(t)}</b></button>`;
+      if (!t || !Number.isFinite(+lat) || !Number.isFinite(+lng)) return;
+      const area = (muni && muni[code]) || "";
+      const key = t + "|" + (area || code);
+      if (seen.has(key)) return; seen.add(key);
+      // 名前に都道府県名から入っている住所は右側を省く
+      list.push({ t, area: area && !t.startsWith(area.slice(0, 2)) ? area : "", lat: +lat, lng: +lng, i });
+    });
+    const nq2 = norm(q);
+    list.sort((x, y) => (norm(y.t).includes(nq2) - norm(x.t).includes(nq2)) || x.t.length - y.t.length || x.i - y.i);
+    const shown = list.slice(0, 30);
+    html += `<div class="grp">住所・地名（${list.length > 30 ? "上位30件" : list.length + "件"}）</div>`;
+    for (const it of shown) {
+      items.push({ lat: it.lat, lng: it.lng, label: (it.area ? it.area + " " : "") + it.t });
+      html += `<button data-i="${items.length - 1}"><div class="row"><b>${esc(it.t)}</b><i>${esc(it.area)}</i></div></button>`;
     }
   }
   if (!items.length) html = `<div class="msg">${addr === null ? "住所検索に接続できませんでした。" : "見つかりませんでした。"}駅名や「市区町村＋地名」で入れ直すか、地図をタップしてください。</div>`;
